@@ -51,3 +51,30 @@ docker compose up --build -d
 ```
 
 로 실행하시면 바로 사용이 가능 합니다
+
+만약 제가 빌드한 이미지로 바로 실행하고 싶으시면
+
+```
+services:
+  bambu:
+    image: hub.rubyon.co.kr/bambu-autofan
+    container_name: bambu-autofan
+    restart: always
+    environment:
+      TZ: Asia/Seoul
+      PRINTER_IP: "192.168.10.1" #프린터의 IP
+      ACCESS_CODE: "acces_scode"       #프린터의 ACCESS_CODE
+      SERIAL: "serial"                 #프린터의 Serial
+      DEBOUNCE: "3"                    #VENT On/Off 상태 감지 지속시간
+      DIRIGERA_IP: "192.168.10.2"      #이케아 DIRIGERA의 IP
+      DIRIGERA_TOKEN: "dirigera_token" #이케아 DIRIGERA의 TOKEN
+      OUTLET_NAME: "outlet_name"       #이케아 OUTLET의 이름
+```
+
+위의 docker-compose.yaml 파일을 만들고
+
+```
+docker compose up --build -d
+```
+
+로 실행하시면 바로 사용이 가능 합니다
