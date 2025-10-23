@@ -1,0 +1,14 @@
+services:
+  bambu:
+    build: .
+    container_name: bambu-autofan
+    restart: always
+    environment:
+      TZ: Asia/Seoul
+      PRINTER_IP: "192.168.10.1"
+      ACCESS_CODE: "access_code"
+      SERIAL: "serial"
+      DEBOUNCE: "3"
+      DIRIGERA_IP: "192.168.10.2"
+      DIRIGERA_TOKEN: "dirigera_token"
+      OUTLET_NAME: "outlet_name"
