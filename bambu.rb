@@ -18,18 +18,26 @@ DIRIGERA_IP = ENV["DIRIGERA_IP"]
 DIRIGERA_TOKEN = ENV["DIRIGERA_TOKEN"]
 OUTLET_NAME = ENV["OUTLET_NAME"]
 
-client = Dirigera::Client.new(DIRIGERA_IP, DIRIGERA_TOKEN)
-outlet = client.outlets.find do |o|
-  o.instance_variable_get(:@data)["attributes"]["customName"].strip == OUTLET_NAME.strip
-end
-abort("OUTLET 을 찾을 수 없습니다. (OUTLET_NAME=#{OUTLET_NAME.strip})") unless outlet
-
-puts "OUTLET ID: #{outlet.instance_variable_get(:@data)['id']}"
-
 ssl_context = OpenSSL::SSL::SSLContext.new
 ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
 is_start = false
+
+def auto_fan(command)
+  client = Dirigera::Client.new(DIRIGERA_IP, DIRIGERA_TOKEN)
+  outlet = client.outlets.find do |o|
+    o.instance_variable_get(:@data)["attributes"]["customName"].strip == OUTLET_NAME.strip
+  end
+  abort("OUTLET 을 찾을 수 없습니다. (OUTLET_NAME=#{OUTLET_NAME.strip})") unless outlet
+  puts "OUTLET ID: #{outlet.instance_variable_get(:@data)['id']}"
+
+  case command
+  when "on"
+    outlet.on
+  when "off"
+    outlet.off
+  end
+end
 
 loop do
   mqtt = nil
@@ -68,7 +76,7 @@ loop do
         # DEBOUNCE 초 이상 지속되면 ON (이미 켜져 있지 않을 때만)
         if !is_start && (now - last_nonzero_since) >= DEBOUNCE
           puts "환기팬 ON (지속 #{DEBOUNCE}초 조건 충족)"
-          outlet.on
+          auto_fan("on")
           is_start = true
           last_nonzero_since = nil
         end
@@ -79,7 +87,7 @@ loop do
         # DEBOUNCE 초 이상 지속되면 OFF (이미 꺼져 있지 않을 때만)
         if is_start && (now - last_zero_since) >= DEBOUNCE
           puts "환기팬 OFF (지속 #{DEBOUNCE}초 조건 충족)"
-          outlet.off
+          auto_fan("off")
           is_start = false
           last_zero_since = nil
         end
