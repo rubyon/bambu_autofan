@@ -1,22 +1,34 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
-require "mqtt"
-require "openssl"
-require "json"
-require "dirigera"
+require 'mqtt'
+require 'openssl'
+require 'json'
+require 'dirigera'
 
 $stdout.sync = true
 $stderr.sync = true
 
-PRINTER_IP = ENV["PRINTER_IP"]
-ACCESS_CODE = ENV["ACCESS_CODE"]
-SERIAL = ENV["SERIAL"]
-USERNAME = "bblp"
+# OpenSSL::SSL::SSLSocket을 monkey patch
+module OpenSSL
+  module SSL
+    class SSLSocket
+      def post_connection_check(_hostname)
+        true
+      end
+    end
+  end
+end
+
+PRINTER_IP = ENV['PRINTER_IP']
+ACCESS_CODE = ENV['ACCESS_CODE']
+SERIAL = ENV['SERIAL']
+USERNAME = 'bblp'
 PORT = 8883
-DEBOUNCE = ENV["DEBOUNCE"].to_i
-DIRIGERA_IP = ENV["DIRIGERA_IP"]
-DIRIGERA_TOKEN = ENV["DIRIGERA_TOKEN"]
-OUTLET_NAME = ENV["OUTLET_NAME"]
+DEBOUNCE = ENV['DEBOUNCE'].to_i
+DIRIGERA_IP = ENV['DIRIGERA_IP']
+DIRIGERA_TOKEN = ENV['DIRIGERA_TOKEN']
+OUTLET_NAME = ENV['OUTLET_NAME']
 
 ssl_context = OpenSSL::SSL::SSLContext.new
 ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
@@ -26,15 +38,15 @@ is_start = false
 def auto_fan(command)
   client = Dirigera::Client.new(DIRIGERA_IP, DIRIGERA_TOKEN)
   outlet = client.outlets.find do |o|
-    o.instance_variable_get(:@data)["attributes"]["customName"].strip == OUTLET_NAME.strip
+    o.instance_variable_get(:@data)['attributes']['customName'].strip == OUTLET_NAME.strip
   end
   abort("OUTLET 을 찾을 수 없습니다. (OUTLET_NAME=#{OUTLET_NAME.strip})") unless outlet
   puts "OUTLET ID: #{outlet.instance_variable_get(:@data)['id']}"
 
   case command
-  when "on"
+  when 'on'
     outlet.on
-  when "off"
+  when 'off'
     outlet.off
   end
 end
@@ -58,25 +70,29 @@ loop do
     last_zero_since = nil
 
     mqtt.get do |_topic, message|
-      data = JSON.parse(message) rescue nil
+      data = begin
+        JSON.parse(message)
+      rescue StandardError
+        nil
+      end
       next unless data
 
-      air_duct_state = data.dig("print", "device", "airduct", "parts")
-                         &.find { |p| p["id"] == 48 }
-                         &.dig("state").to_i
+      air_duct_state = data.dig('print', 'ams', 'tray', 'parts')
+                           &.find { |p| p['id'] == 48 }
+                           &.dig('state').to_i
 
       puts "air_duct_state: #{air_duct_state}"
 
       now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-      if air_duct_state > 0
+      if air_duct_state.positive?
         last_nonzero_since ||= now
         last_zero_since = nil
 
         # DEBOUNCE 초 이상 지속되면 ON (이미 켜져 있지 않을 때만)
         if !is_start && (now - last_nonzero_since) >= DEBOUNCE
           puts "환기팬 ON (지속 #{DEBOUNCE}초 조건 충족)"
-          auto_fan("on")
+          auto_fan('on')
           is_start = true
           last_nonzero_since = nil
         end
@@ -87,21 +103,19 @@ loop do
         # DEBOUNCE 초 이상 지속되면 OFF (이미 꺼져 있지 않을 때만)
         if is_start && (now - last_zero_since) >= DEBOUNCE
           puts "환기팬 OFF (지속 #{DEBOUNCE}초 조건 충족)"
-          auto_fan("off")
+          auto_fan('off')
           is_start = false
           last_zero_since = nil
         end
       end
     end
-
-  rescue => e
+  rescue StandardError => e
     warn "오류 발생: #{e.class} - #{e.message}"
-    puts "5초 후 재접속합니다"
-
+    puts '5초 후 재접속합니다'
   ensure
     begin
       mqtt&.disconnect
-    rescue => e
+    rescue StandardError => e
       warn "연결 종료 중 오류: #{e.class} - #{e.message}"
     end
   end

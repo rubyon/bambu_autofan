@@ -1,5 +1,7 @@
-source "https://rubygems.org"
+# frozen_string_literal: true
 
-gem "mqtt"
-gem "json"
-gem "dirigera"
+source 'https://rubygems.org'
+
+gem 'dirigera'
+gem 'json'
+gem 'mqtt'
